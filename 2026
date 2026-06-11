@@ -1,0 +1,2661 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acoustic Masking Simulator</title>
+
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)']],
+                displayMath: [['\\[', '\\]']]
+            },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        
+        :root {
+            --primary-color: #2c3e50;
+            --primary-hover: #1a252f;
+            --bg-color: #f4f6f8;
+            --surface-color: #ffffff;
+            --text-main: #2b2d42;
+            --text-secondary: #8d99ae;
+            --border-color: #edf2f4;
+            
+            --color-white: #b0bec5;
+            --color-pink: #f06292;
+            --color-brown: #8d6e63;
+            --color-green: #81c784;
+            --color-default: #90a4ae;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: var(--surface-color);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 24px;
+            height: 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        header h1 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-tabs {
+            display: flex;
+            height: 100%;
+        }
+
+        .nav-tabs button {
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            padding: 0 16px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .nav-tabs button:hover {
+            color: var(--primary-color);
+        }
+
+        .nav-tabs button.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+
+        main {
+            flex: 1;
+            max-width: 1000px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 32px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .card {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 32px;
+            box-shadow: 0 1px 2px rgba(60,64,67,0.05);
+        }
+
+        .card-header {
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 16px;
+        }
+
+        .card-header h2 {
+            font-size: 1.2rem;
+            margin-bottom: 8px;
+            color: var(--text-main);
+        }
+
+        .card-header p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .oscilloscope-card {
+            background-color: #1e1e24;
+            border-radius: 8px;
+            height: 180px;
+            position: relative;
+            overflow: hidden;
+            flex-shrink: 0;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .engine-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%; 
+            height: 100%;
+            background-color: rgba(30, 30, 36, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .btn-start {
+            background-color: #ffffff;
+            color: #1e1e24;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-start:hover {
+            background-color: #e0e0e0;
+            transform: scale(1.02);
+        }
+
+        .vis-toggle {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            display: flex;
+            overflow: hidden;
+            z-index: 5;
+        }
+
+        .vis-toggle button {
+            background: none;
+            border: none;
+            padding: 6px 12px;
+            color: #8d99ae;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .vis-toggle button.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+
+        .view-section {
+            display: none;
+        }
+
+        .view-section.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+        }
+
+        .btn-outline:hover {
+            background-color: #f8f9fa;
+        }
+
+        .research-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .method-box {
+            background: #fafbfc;
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            border-radius: 6px;
+        }
+
+        .method-box h3 {
+            font-size: 1rem;
+            margin-bottom: 12px;
+            color: var(--primary-color);
+        }
+
+        .method-box p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+
+        .formula-box {
+            background: #eef2f5;
+            padding: 14px;
+            border-radius: 4px;
+            font-size: 0.88rem;
+            margin-top: 12px;
+            text-align: center;
+            color: #2c3e50;
+            font-weight: 600;
+            line-height: 1.6;
+            overflow-x: auto;
+        }
+
+        .research-result-box {
+            margin-top: 24px;
+            background: #fafbfc;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 20px;
+        }
+
+        .research-result-box h3 {
+            font-size: 1rem;
+            margin-bottom: 12px;
+            color: var(--primary-color);
+        }
+
+        .research-result-box p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 14px;
+        }
+
+        .result-table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: white;
+        }
+
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.86rem;
+        }
+
+        .result-table th {
+            background: #eef2f5;
+            color: var(--primary-color);
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
+        }
+
+        .result-table td {
+            padding: 10px;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-main);
+        }
+
+        .result-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .result-note {
+            margin-top: 12px;
+            font-size: 0.82rem !important;
+            color: var(--text-secondary) !important;
+        }
+
+        .analysis-grid {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 24px;
+        }
+
+        .noise-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .noise-btn {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            padding: 18px 16px;
+            border-radius: 6px;
+            text-align: left;
+            cursor: pointer;
+            transition: 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .noise-btn::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: transparent;
+            transition: 0.2s;
+        }
+
+        .noise-btn#btn-white.active::before {
+            background-color: var(--color-white);
+        }
+
+        .noise-btn#btn-pink.active::before {
+            background-color: var(--color-pink);
+        }
+
+        .noise-btn#btn-brown.active::before {
+            background-color: var(--color-brown);
+        }
+
+        .noise-btn#btn-green.active::before {
+            background-color: var(--color-green);
+        }
+
+        .noise-btn h3 {
+            font-size: 0.95rem;
+            color: var(--text-main);
+            margin-bottom: 6px;
+        }
+
+        .noise-btn p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .noise-btn:hover {
+            border-color: #d1d8e0;
+        }
+
+        .noise-btn.active {
+            background-color: #f8f9fa;
+            border-color: var(--border-color);
+        }
+        
+        .info-card {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+        }
+
+        .info-header {
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .info-header h2 {
+            font-size: 1.5rem;
+            color: var(--text-main);
+        }
+
+        .info-badge {
+            background: #f4f6f8;
+            color: var(--primary-color);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            border: 1px solid var(--border-color);
+        }
+
+        .info-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .info-block {
+            background: #fafbfc;
+            border: 1px solid #edf2f4;
+            border-radius: 6px;
+            padding: 16px;
+        }
+
+        .info-block h4 {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-block p {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: var(--text-main);
+        }
+
+        .opt-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .input-group {
+            background: #fafbfc;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 16px;
+            transition: 0.2s;
+        }
+
+        .input-group h4 {
+            text-align: center;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+            color: var(--text-main);
+            border-bottom: 2px solid;
+            padding-bottom: 8px;
+        }
+
+        .input-group.theme-white h4 {
+            border-color: var(--color-white);
+        }
+
+        .input-group.theme-pink h4 {
+            border-color: var(--color-pink);
+        }
+
+        .input-group.theme-brown h4 {
+            border-color: var(--color-brown);
+        }
+
+        .input-group.theme-green h4 {
+            border-color: var(--color-green);
+        }
+        
+        .noise-score-card {
+            cursor: pointer;
+            min-height: 198px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .noise-score-card:hover {
+            transform: translateY(-2px);
+            border-color: #d1d8e0;
+            box-shadow: 0 4px 12px rgba(60,64,67,0.08);
+        }
+
+        .score-display {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 12px;
+            font-size: 0.82rem;
+        }
+
+        .score-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 7px;
+            color: var(--text-secondary);
+        }
+
+        .score-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .score-row strong {
+            color: var(--text-main);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .score-empty {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.86rem;
+            padding: 18px 0;
+        }
+
+        .card-click-guide {
+            margin-top: 10px;
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .opt-result {
+            display: none;
+            background: #eef2f5;
+            border: 1px dashed var(--primary-color);
+            padding: 24px;
+            border-radius: 6px;
+            text-align: center;
+            margin-top: 24px;
+            animation: fadeIn 0.5s;
+        }
+
+        .opt-result h3 {
+            color: var(--primary-color);
+            margin-bottom: 16px;
+        }
+
+        .ratio-display {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        .ratio-item span {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            display: block;
+            font-weight: normal;
+            margin-bottom: 4px;
+        }
+
+        .download-controls {
+            margin-top: 22px;
+            padding: 18px;
+            background: #fafbfc;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .download-controls h4 {
+            font-size: 0.95rem;
+            color: var(--primary-color);
+            margin-bottom: 8px;
+        }
+
+        .download-controls p {
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 14px;
+        }
+
+        .download-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .download-row label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .download-row select {
+            padding: 9px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: white;
+            color: var(--text-main);
+            font-size: 0.9rem;
+        }
+
+        .download-status {
+            margin-top: 12px;
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            min-height: 18px;
+        }
+
+        .opt-detail {
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+
+        .detail-panel {
+            max-width: 820px;
+            margin: 0 auto;
+            background: #fafbfc;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 24px;
+        }
+
+        .detail-panel h3 {
+            font-size: 1.25rem;
+            color: var(--primary-color);
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .detail-panel p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .test-step-tabs {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .test-step-tabs button {
+            border: 1px solid var(--border-color);
+            background: white;
+            color: var(--text-secondary);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 0.82rem;
+        }
+
+        .test-step-tabs button.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .test-section {
+            display: none;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 20px;
+        }
+
+        .test-section.active {
+            display: block;
+        }
+
+        .test-section h4 {
+            font-size: 1rem;
+            color: var(--text-main);
+            margin-bottom: 8px;
+        }
+
+        .test-section .desc {
+            font-size: 0.86rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 16px;
+            text-align: left;
+        }
+
+        .test-action-row {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        .test-status {
+            text-align: center;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-top: 12px;
+            min-height: 22px;
+        }
+
+        .reaction-box {
+            height: 160px;
+            border-radius: 6px;
+            background: #eef2f5;
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            cursor: pointer;
+            user-select: none;
+            transition: 0.15s;
+        }
+
+        .reaction-box.ready {
+            background: #2c3e50;
+            color: white;
+            transform: scale(1.01);
+        }
+
+        .reaction-box.waiting {
+            background: #f8f9fa;
+            color: var(--text-secondary);
+        }
+
+        .memory-display,
+        .calc-display {
+            min-height: 100px;
+            border-radius: 6px;
+            background: #eef2f5;
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: 4px;
+            color: var(--primary-color);
+            text-align: center;
+            padding: 16px;
+        }
+
+        .calc-display {
+            letter-spacing: 0;
+            font-size: 1.65rem;
+        }
+
+        .test-input {
+            width: 100%;
+            max-width: 300px;
+            margin: 14px auto 0;
+            display: block;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            text-align: center;
+            font-size: 1rem;
+        }
+
+        .mini-result-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 14px;
+        }
+
+        .mini-result {
+            background: #fafbfc;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .mini-result span {
+            display: block;
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+            margin-bottom: 4px;
+        }
+
+        .mini-result strong {
+            color: var(--primary-color);
+            font-size: 1rem;
+        }
+
+        .subjective-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        .question-item {
+            display: grid;
+            grid-template-columns: 1fr 170px;
+            gap: 12px;
+            align-items: center;
+            background: #fafbfc;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 12px;
+        }
+
+        .question-item label {
+            font-size: 0.86rem;
+            color: var(--text-main);
+            line-height: 1.4;
+        }
+
+        .question-item select {
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: white;
+            font-size: 0.85rem;
+        }
+
+        .final-summary {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .summary-card {
+            background: #fafbfc;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 14px;
+        }
+
+        .summary-card span {
+            display: block;
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+
+        .summary-card strong {
+            font-size: 1.15rem;
+            color: var(--primary-color);
+        }
+
+        .detail-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 18px;
+        }
+
+        .slider-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px 32px;
+            margin-top: 16px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .control-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .control-header .val {
+            color: var(--primary-color);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .control-desc {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: -6px;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]:focus {
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            background: #dfe4ea;
+            border-radius: 2px;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            background: var(--primary-color);
+            border-radius: 50%;
+            margin-top: -6px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        @media (max-width: 850px) {
+            header {
+                height: auto;
+                padding: 14px 18px;
+                flex-direction: column;
+                gap: 12px;
+                align-items: flex-start;
+            }
+
+            .nav-tabs {
+                flex-wrap: wrap;
+                height: auto;
+            }
+
+            .nav-tabs button {
+                padding: 10px 10px;
+            }
+
+            .research-grid,
+            .analysis-grid,
+            .opt-grid,
+            .slider-grid,
+            .mini-result-grid,
+            .final-summary {
+                grid-template-columns: 1fr;
+            }
+
+            .question-item {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Acoustic Masking Simulator</h1>
+        <div class="nav-tabs">
+            <button id="tab-research" onclick="switchView('research')">1. 연구 방법론</button>
+            <button id="tab-analysis" class="active" onclick="switchView('analysis')">2. 주파수 분석</button>
+            <button id="tab-optimize" onclick="switchView('optimize')">3. 개인 최적화</button>
+            <button id="tab-mixer" onclick="switchView('mixer')">4. 주파수 믹서</button>
+        </div>
+    </header>
+
+    <main>
+        <div class="oscilloscope-card">
+            <div class="vis-toggle">
+                <button id="vis-wave" class="active" onclick="setVisualizer('wave')">파동 (Waveform)</button>
+                <button id="vis-spec" onclick="setVisualizer('spec')">주파수 대역 (FFT Spectrum)</button>
+            </div>
+            <div id="engine-overlay" class="engine-overlay">
+                <button class="btn-start" onclick="initAudioEngine()">오디오 듣기</button>
+            </div>
+            <canvas id="waveform-canvas"></canvas>
+        </div>
+
+        <section id="view-research" class="view-section">
+            <div class="card">
+                <div class="card-header">
+                    <h2>연구 및 평가 방법론 (Methodology)</h2>
+                    <p>
+                        본 시뮬레이터는 기숙사 야간 소음이 수면 질과 기상 직후 인지 기능에 미치는 영향을 확인하기 위해 설계된 연구 기반 도구입니다.
+                        고등학교 2학년 기숙사 학생 6명을 대상으로 한 컬러 노이즈 실험의 방법론과 결과를 함께 제시합니다.
+                    </p>
+                </div>
+
+                <div class="research-grid">
+                    <div class="method-box">
+                        <h3>1. 객관적 인지 회복도 산출 알고리즘 (SQS)</h3>
+                        <p>수면 직후 피험자의 전두엽 인지 자원 회복 정도를 정량적으로 평가하기 위해 자체 개발한 Python 기반 테스트 구조를 브라우저 환경으로 구현했습니다.</p>
+                        <p>- <strong>반응 기민성:</strong> 무작위 시각 자극에 대한 반응 속도 측정</p>
+                        <p>- <strong>작업 기억력:</strong> 7자리 난수 2초 노출 후 완전 소거, 단기 기억 정확도 측정</p>
+                        <p>- <strong>순간 연산력:</strong> 제한 시간 11초 내 복합 연산 정답률 측정</p>
+                        <div class="formula-box">
+                            \[
+                            SQS = 0.4S_{\mathrm{react}} + 0.3S_{\mathrm{mem}} + 0.3S_{\mathrm{calc}}
+                            \]
+                        </div>
+                    </div>
+
+                    <div class="method-box">
+                        <h3>2. 반응 점수 산출 공식</h3>
+                        <p>반응 속도는 총 5회 측정한 평균 반응 시간 \(t\)를 기준으로 계산합니다. 기준 반응 시간은 0.22초로 두고, 지연 시간이 길어질수록 점수를 감점합니다.</p>
+                        <div class="formula-box">
+                            \[
+                            S_{\mathrm{react}} =
+                            \max\left(0,\ 100 - (t - 0.22)\times350\right)
+                            \]
+                        </div>
+                    </div>
+
+                    <div class="method-box">
+                        <h3>3. 주관적 수면 척도 검증</h3>
+                        <p>객관적 지표의 맹점을 보완하기 위해 주관적 수면 설문을 함께 활용했습니다. 설문은 15문항, 4점 척도로 구성되며 총점은 15~60점 범위입니다.</p>
+                        <p>- <strong>수면 양상:</strong> 입면, 각성, 수면 유지 상태</p>
+                        <p>- <strong>수면 결과:</strong> 기상 후 피로감, 집중 준비도</p>
+                        <p>- <strong>수면 저해:</strong> 소음 인식, 방해감, 환경 안정성</p>
+                        <div class="formula-box">
+                            \[
+                            Q_{\mathrm{sleep}} = \sum_{k=1}^{15} q_k,\quad q_k \in \{1,2,3,4\}
+                            \]
+                        </div>
+                    </div>
+
+                    <div class="method-box">
+                        <h3>4. Custom 노이즈 믹싱 방식</h3>
+                        <p>연구용 Custom 노이즈는 기숙사 소음 분석 결과와 1차 실험 결과를 동시에 반영하여 설계했습니다.</p>
+                        <p>- <strong>Base Layer:</strong> 저주파 충격음 차단 효과가 가장 높았던 Brown Noise</p>
+                        <p>- <strong>Enhancement Layer:</strong> 작업 기억력 지표에서 강점을 보인 Pink Noise</p>
+                        <p>- <strong>Defense Layer:</strong> FFT 분석에서 확인된 80~120Hz 저주파 대역 대응 필터</p>
+                        <div class="formula-box">
+                            \[
+                            L_{\mathrm{total}} =
+                            10\log_{10}\left(\sum_{i=1}^{n}10^{L_i/10}\right)
+                            \]
+                            \[
+                            45\mathrm{dB} \approx
+                            10\log_{10}
+                            \left(
+                            10^{42.5/10}
+                            +10^{38.4/10}
+                            +10^{37.5/10}
+                            \right)
+                            \]
+                            \[
+                            \mathrm{Brown}:42.5\mathrm{dB},\quad
+                            \mathrm{Pink}:38.4\mathrm{dB},\quad
+                            \mathrm{Defense}:37.5\mathrm{dB}
+                            \]
+                        </div>
+                    </div>
+
+                    <div class="method-box">
+                        <h3>5. 개인 최적화 알고리즘</h3>
+                        <p>브라우저 내 개인 최적화 탭에서는 각 노이즈 조건의 SQS와 주관적 수면 점수를 직접 측정하고, 이를 기반으로 개인 맞춤형 믹싱 비율을 계산합니다.</p>
+                        <p>- SQS는 100점 만점으로 계산</p>
+                        <p>- 주관적 수면 점수는 60점 만점이므로 100점 기준으로 환산</p>
+                        <p>- 환산 합산 점수를 제곱하여 변별력을 높인 뒤 비율을 산출</p>
+                        <div class="formula-box">
+                            \[
+                            C_i = SQS_i + Q_i \times \frac{100}{60}
+                            \]
+                            \[
+                            W_i = C_i^2
+                            \]
+                            \[
+                            R_i =
+                            \frac{W_i}{\sum_{j=1}^{4}W_j}\times100
+                            \]
+                        </div>
+                    </div>
+
+                    <div class="method-box">
+                        <h3>6. Custom 노이즈 다운로드 방식</h3>
+                        <p>개인 최적화 결과로 계산된 \(R_i\) 값을 이용하여 White, Pink, Brown, Green 레이어를 합성합니다. 다운로드된 파일은 자기 전 반복 재생하여 실제 수면 환경에서 사용할 수 있습니다.</p>
+                        <p>- 1분, 5분, 10분, 30분 길이 선택 가능</p>
+                        <p>- 시작과 끝에는 부드러운 페이드 인/아웃 적용</p>
+                        <p>- 과도한 음량 증가를 방지하기 위해 최종 신호는 내부적으로 정규화</p>
+                        <div class="formula-box">
+                            \[
+                            x_{\mathrm{custom}}(t) =
+                            r_wx_w(t) + r_px_p(t) + r_bx_b(t) + r_gx_g(t)
+                            \]
+                            \[
+                            r_i = \frac{R_i}{\sum R_i}
+                            \]
+                        </div>
+                    </div>
+                </div>
+
+                <div class="research-result-box">
+                    <h3>7. 고등학교 2학년 기숙사 학생(N=6) 실험 결과 요약</h3>
+                    <p>
+                        용인시 소재 기숙사에 거주하는 고등학교 2학년 학생 6명을 대상으로 백색, 그린, 핑크, 브라운 노이즈 조건을 비교하였다.
+                        기숙사 야간 소음을 FFT로 분석한 결과, 방문 개폐 진동과 복도 보행음에 해당하는 80~120Hz 저주파 대역에서 주요 피크가 관찰되었으며,
+                        이 대역을 효과적으로 마스킹하는 브라운 노이즈 조건에서 객관적 SQS와 주관적 수면 점수가 가장 높게 나타났다.
+                    </p>
+
+                    <div class="result-table-wrap">
+                        <table class="result-table">
+                            <thead>
+                                <tr>
+                                    <th>음향 조건</th>
+                                    <th>반응 속도</th>
+                                    <th>기억 정답률</th>
+                                    <th>연산 정답률</th>
+                                    <th>SQS 총합</th>
+                                    <th>주관적 수면 점수</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>White Noise</td>
+                                    <td>0.262 sec</td>
+                                    <td>77.78%</td>
+                                    <td>72.22%</td>
+                                    <td>79.12</td>
+                                    <td>42.1</td>
+                                </tr>
+                                <tr>
+                                    <td>Green Noise</td>
+                                    <td>0.258 sec</td>
+                                    <td>79.63%</td>
+                                    <td>75.93%</td>
+                                    <td>81.35</td>
+                                    <td>43.5</td>
+                                </tr>
+                                <tr>
+                                    <td>Pink Noise</td>
+                                    <td>0.252 sec</td>
+                                    <td>87.04%</td>
+                                    <td>79.63%</td>
+                                    <td>85.52</td>
+                                    <td>46.8</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Brown Noise</strong></td>
+                                    <td><strong>0.241 sec</strong></td>
+                                    <td>83.33%</td>
+                                    <td><strong>85.19%</strong></td>
+                                    <td><strong>87.62</strong></td>
+                                    <td><strong>48.2</strong></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Custom Noise</strong></td>
+                                    <td><strong>0.236 sec</strong></td>
+                                    <td><strong>90.74%</strong></td>
+                                    <td><strong>88.89%</strong></td>
+                                    <td><strong>91.65</strong></td>
+                                    <td><strong>51.4</strong></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p class="result-note">
+                        주: Custom Noise는 Brown Noise를 기본 레이어로 설정하고, Pink Noise 및 80~120Hz 저주파 대응 필터를 혼합한 자체 제작 마스킹 음원이다.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-analysis" class="view-section active">
+            <div class="analysis-grid">
+                <div class="noise-menu">
+                    <div class="noise-btn active" id="btn-white" onclick="selectNoise('white')">
+                        <h3>White Noise</h3>
+                        <p>광범위 마스킹</p>
+                    </div>
+                    <div class="noise-btn" id="btn-pink" onclick="selectNoise('pink')">
+                        <h3>Pink Noise</h3>
+                        <p>뇌파 이완 유도</p>
+                    </div>
+                    <div class="noise-btn" id="btn-brown" onclick="selectNoise('brown')">
+                        <h3>Brown Noise</h3>
+                        <p>저주파 충격음 차단</p>
+                    </div>
+                    <div class="noise-btn" id="btn-green" onclick="selectNoise('green')">
+                        <h3>Green Noise</h3>
+                        <p>중음역대 안정화</p>
+                    </div>
+                </div>
+                
+                <div class="card info-card" style="padding: 32px;">
+                    <div>
+                        <div class="info-header">
+                            <h2 id="info-title">White Noise</h2>
+                            <span class="info-badge" id="info-badge">1/f⁰ 전 대역 분포</span>
+                        </div>
+                        <div class="info-content">
+                            <div class="info-block">
+                                <h4>작용 원리 및 타겟</h4>
+                                <p id="info-desc">가청 주파수 전 대역에 걸쳐 균일한 전력 스펙트럼 밀도를 가집니다. 특정 대역에 편중되지 않아 복잡하고 광범위한 환경 소음을 전체적으로 은폐하는 데 사용됩니다.</p>
+                            </div>
+                            <div class="info-block">
+                                <h4>물리적 파동 특성</h4>
+                                <p id="info-physics">모든 주파수 대역의 에너지가 동일하게 섞여 있어, 시간 영역에서는 매우 불규칙하고 뾰족한 진폭을 형성하며, 주파수 영역에서는 평탄한 그래프를 그립니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-outline" id="play-toggle" onclick="togglePlay()">현재 주파수 출력</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-optimize" class="view-section">
+            <div class="card">
+                <div class="card-header">
+                    <h2>개인 최적화 (Optimization Protocol)</h2>
+                    <p>
+                        각 노이즈 카드를 클릭하면 반응 속도, 기억 정답률, 연산 정답률, 주관적 수면 점수를 브라우저 안에서 직접 측정할 수 있습니다.
+                        측정이 끝나면 해당 카드에 점수가 저장되고, 최종적으로 개인 맞춤형 Custom 노이즈 비율을 계산합니다.
+                    </p>
+                </div>
+
+                <div id="opt-overview">
+                    <div class="opt-grid">
+                        <div class="input-group theme-white noise-score-card" onclick="openNoiseInput('white')">
+                            <h4>White Noise</h4>
+                            <div class="score-display" id="score-card-white">
+                                <div class="score-empty">측정 전</div>
+                            </div>
+                            <div class="card-click-guide">클릭하여 SQS / 수면 점수 측정</div>
+                        </div>
+
+                        <div class="input-group theme-pink noise-score-card" onclick="openNoiseInput('pink')">
+                            <h4>Pink Noise</h4>
+                            <div class="score-display" id="score-card-pink">
+                                <div class="score-empty">측정 전</div>
+                            </div>
+                            <div class="card-click-guide">클릭하여 SQS / 수면 점수 측정</div>
+                        </div>
+
+                        <div class="input-group theme-brown noise-score-card" onclick="openNoiseInput('brown')">
+                            <h4>Brown Noise</h4>
+                            <div class="score-display" id="score-card-brown">
+                                <div class="score-empty">측정 전</div>
+                            </div>
+                            <div class="card-click-guide">클릭하여 SQS / 수면 점수 측정</div>
+                        </div>
+
+                        <div class="input-group theme-green noise-score-card" onclick="openNoiseInput('green')">
+                            <h4>Green Noise</h4>
+                            <div class="score-display" id="score-card-green">
+                                <div class="score-empty">측정 전</div>
+                            </div>
+                            <div class="card-click-guide">클릭하여 SQS / 수면 점수 측정</div>
+                        </div>
+                    </div>
+
+                    <div style="text-align: center;">
+                        <button class="btn" onclick="calculateOptimization()">데이터 분석 및 최적화 비율 도출</button>
+                    </div>
+
+                    <div id="optimization-result" class="opt-result">
+                        <h3>분석 완료: 맞춤형 마스킹 비율 도출</h3>
+                        <p style="font-size: 0.9rem; color: #5f6368; margin-bottom: 16px;">
+                            입력하신 교차 지표를 바탕으로 각 주파수 대역별 가중치를 계산한 결과입니다.
+                        </p>
+                        <div class="ratio-display">
+                            <div class="ratio-item"><span>White</span><strong id="res-white" style="color:var(--color-default)">0%</strong></div>
+                            <div class="ratio-item"><span>Pink</span><strong id="res-pink" style="color:var(--color-pink)">0%</strong></div>
+                            <div class="ratio-item"><span>Brown</span><strong id="res-brown" style="color:var(--color-brown)">0%</strong></div>
+                            <div class="ratio-item"><span>Green</span><strong id="res-green" style="color:var(--color-green)">0%</strong></div>
+                        </div>
+                        <button class="btn" onclick="applyToMixer()">이 비율을 Custom 믹서에 바로 적용하기</button>
+
+                        <div class="download-controls">
+                            <h4>Custom 노이즈 다운로드</h4>
+                            <p>
+                                개인 최적화로 계산된 비율을 바탕으로 수면용 Custom 노이즈 파일을 생성합니다.
+                                10분 파일을 다운로드한 뒤 반복 재생하는 방식을 권장합니다.
+                            </p>
+                            <div class="download-row">
+                                <label for="download-duration-opt">길이</label>
+                                <select id="download-duration-opt">
+                                    <option value="60">1분 테스트</option>
+                                    <option value="300">5분</option>
+                                    <option value="600" selected>10분 권장</option>
+                                    <option value="1800">30분</option>
+                                </select>
+                                <button class="btn btn-outline" onclick="downloadCustomNoise('optimized')">
+                                    Custom 노이즈 다운로드
+                                </button>
+                            </div>
+                            <div id="download-status-opt" class="download-status"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="opt-detail" class="opt-detail">
+                    <div class="detail-panel">
+                        <h3 id="detail-title">White Noise</h3>
+                        <p id="detail-desc">해당 노이즈 조건에서 기상 직후 인지 기능과 주관적 수면 상태를 측정합니다.</p>
+
+                        <div class="test-step-tabs">
+                            <button id="test-tab-react" class="active" onclick="switchTestStep('react')">1. 반응 속도</button>
+                            <button id="test-tab-memory" onclick="switchTestStep('memory')">2. 기억 정답률</button>
+                            <button id="test-tab-calc" onclick="switchTestStep('calc')">3. 연산 정답률</button>
+                            <button id="test-tab-subjective" onclick="switchTestStep('subjective')">4. 수면 설문</button>
+                            <button id="test-tab-final" onclick="switchTestStep('final')">5. 결과 저장</button>
+                        </div>
+
+                        <div id="test-react" class="test-section active">
+                            <h4>반응 속도 테스트</h4>
+                            <p class="desc">무작위 대기 시간 후 화면이 진하게 바뀌면 즉시 클릭합니다. 총 5회 측정하며, 평균 반응 시간이 SQS의 반응 기민성 점수로 환산됩니다.</p>
+                            <div id="reaction-box" class="reaction-box" onclick="handleReactionClick()">테스트 시작 버튼을 누르세요</div>
+                            <div class="test-status" id="reaction-status">미측정</div>
+                            <div class="test-action-row">
+                                <button class="btn" onclick="startReactionTest()">반응 속도 테스트 시작</button>
+                            </div>
+                            <div class="mini-result-grid">
+                                <div class="mini-result"><span>평균 반응 시간</span><strong id="react-avg">-</strong></div>
+                                <div class="mini-result"><span>측정 횟수</span><strong id="react-count">0/5</strong></div>
+                                <div class="mini-result"><span>반응 점수</span><strong id="react-score">-</strong></div>
+                            </div>
+                        </div>
+
+                        <div id="test-memory" class="test-section">
+                            <h4>기억 정답률 테스트</h4>
+                            <p class="desc">7자리 숫자가 2초 동안 표시된 뒤 사라집니다. 숫자가 사라진 후 기억나는 숫자를 입력합니다. 총 3회 측정합니다.</p>
+                            <div id="memory-display" class="memory-display">-------</div>
+                            <input id="memory-input" class="test-input" type="text" inputmode="numeric" maxlength="7" placeholder="7자리 숫자 입력" disabled>
+                            <div class="test-status" id="memory-status">미측정</div>
+                            <div class="test-action-row">
+                                <button class="btn" onclick="startMemoryTest()">기억 테스트 시작</button>
+                                <button class="btn btn-outline" onclick="submitMemoryAnswer()">정답 제출</button>
+                            </div>
+                            <div class="mini-result-grid">
+                                <div class="mini-result"><span>정답 수</span><strong id="memory-correct">0/3</strong></div>
+                                <div class="mini-result"><span>정답률</span><strong id="memory-rate">-</strong></div>
+                                <div class="mini-result"><span>기억 점수</span><strong id="memory-score">-</strong></div>
+                            </div>
+                        </div>
+
+                        <div id="test-calc" class="test-section">
+                            <h4>연산 정답률 테스트</h4>
+                            <p class="desc">제한 시간 11초 안에 제시된 복합 연산을 풀어 입력합니다. 총 3회 측정하며, 정답률이 SQS의 연산 점수로 반영됩니다.</p>
+                            <div id="calc-display" class="calc-display">문제 대기</div>
+                            <input id="calc-input" class="test-input" type="number" placeholder="정답 입력" disabled>
+                            <div class="test-status" id="calc-status">미측정</div>
+                            <div class="test-action-row">
+                                <button class="btn" onclick="startCalcTest()">연산 테스트 시작</button>
+                                <button class="btn btn-outline" onclick="submitCalcAnswer()">정답 제출</button>
+                            </div>
+                            <div class="mini-result-grid">
+                                <div class="mini-result"><span>정답 수</span><strong id="calc-correct">0/3</strong></div>
+                                <div class="mini-result"><span>정답률</span><strong id="calc-rate">-</strong></div>
+                                <div class="mini-result"><span>연산 점수</span><strong id="calc-score">-</strong></div>
+                            </div>
+                        </div>
+
+                        <div id="test-subjective" class="test-section">
+                            <h4>주관적 수면 점수 설문</h4>
+                            <p class="desc">각 문항에 대해 오늘 아침 느낀 상태를 선택합니다. 모든 문항은 점수가 높을수록 수면 상태가 좋은 방향으로 구성했습니다.</p>
+                            <div id="subjective-questions" class="subjective-grid"></div>
+                            <div class="test-status" id="subjective-status">15문항 중 0문항 응답</div>
+                        </div>
+
+                        <div id="test-final" class="test-section">
+                            <h4>최종 결과 저장</h4>
+                            <p class="desc">반응 속도, 기억 정답률, 연산 정답률, 주관적 수면 점수를 종합하여 해당 노이즈 조건의 최종 SQS와 수면 점수를 저장합니다.</p>
+
+                            <div class="final-summary">
+                                <div class="summary-card"><span>반응 점수</span><strong id="final-react">-</strong></div>
+                                <div class="summary-card"><span>기억 점수</span><strong id="final-memory">-</strong></div>
+                                <div class="summary-card"><span>연산 점수</span><strong id="final-calc">-</strong></div>
+                                <div class="summary-card"><span>주관적 수면 점수</span><strong id="final-subjective">-</strong></div>
+                                <div class="summary-card"><span>최종 SQS</span><strong id="final-sqs">-</strong></div>
+                                <div class="summary-card"><span>환산 합산 점수</span><strong id="final-combined">-</strong></div>
+                            </div>
+
+                            <div class="detail-actions">
+                                <button class="btn btn-outline" onclick="closeNoiseInput()">돌아가기</button>
+                                <button class="btn" onclick="saveFullTestResult()">결과 저장 후 돌아가기</button>
+                            </div>
+                        </div>
+
+                        <div class="detail-actions">
+                            <button class="btn btn-outline" onclick="closeNoiseInput()">개인 최적화 화면으로 돌아가기</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-mixer" class="view-section">
+            <div class="card mixer-card">
+                <div class="card-header">
+                    <h2>Custom Frequency Mixer</h2>
+                    <p>레이어별 출력 레벨을 조절하여 맞춤형 마스킹 파동을 합성합니다.</p>
+                </div>
+                
+                <div class="slider-grid">
+                    <div class="control-group">
+                        <div class="control-header">
+                            <span>White Layer</span>
+                            <span class="val" id="val-white">0%</span>
+                        </div>
+                        <p class="control-desc">전 대역 광범위 마스킹</p>
+                        <input type="range" id="mix-white" min="0" max="100" value="0" oninput="updateMix()">
+                    </div>
+
+                    <div class="control-group">
+                        <div class="control-header">
+                            <span>Pink Layer</span>
+                            <span class="val" id="val-pink">0%</span>
+                        </div>
+                        <p class="control-desc">심리적 이완 및 작업 기억력 보조</p>
+                        <input type="range" id="mix-pink" min="0" max="100" value="0" oninput="updateMix()">
+                    </div>
+
+                    <div class="control-group">
+                        <div class="control-header">
+                            <span>Brown Layer</span>
+                            <span class="val" id="val-brown">0%</span>
+                        </div>
+                        <p class="control-desc">저주파 충격음 마스킹</p>
+                        <input type="range" id="mix-brown" min="0" max="100" value="0" oninput="updateMix()">
+                    </div>
+
+                    <div class="control-group">
+                        <div class="control-header">
+                            <span>Green Layer</span>
+                            <span class="val" id="val-green">0%</span>
+                        </div>
+                        <p class="control-desc">중간 주파수 안정화 및 자연음 기반 마스킹</p>
+                        <input type="range" id="mix-green" min="0" max="100" value="0" oninput="updateMix()">
+                    </div>
+                </div>
+
+                <div class="download-controls">
+                    <h4>Custom 노이즈 다운로드</h4>
+                    <p>
+                        현재 슬라이더로 설정한 White, Pink, Brown, Green 비율을 그대로 합성하여 수면용 Custom 노이즈 파일로 저장합니다.
+                        자기 전에는 다운로드한 파일을 반복 재생하면 됩니다.
+                    </p>
+                    <div class="download-row">
+                        <label for="download-duration-mixer">길이</label>
+                        <select id="download-duration-mixer">
+                            <option value="60">1분 테스트</option>
+                            <option value="300">5분</option>
+                            <option value="600" selected>10분 권장</option>
+                            <option value="1800">30분</option>
+                        </select>
+                        <button class="btn btn-outline" onclick="downloadCustomNoise('mixer')">
+                            Custom 노이즈 다운로드
+                        </button>
+                    </div>
+                    <div id="download-status-mixer" class="download-status"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const dictionary = {
+            white: { 
+                title: 'White Noise',
+                badge: '1/f⁰ 균일 분포',
+                desc: '가청 주파수 전 대역에 걸쳐 균일한 전력 스펙트럼 밀도를 가집니다. 특정 대역에 편중되지 않아 복잡하고 광범위한 환경 소음을 전체적으로 은폐하는 데 사용됩니다.',
+                physics: '모든 주파수 대역의 에너지가 동일하게 섞여 있어, 시간 영역에서는 매우 불규칙하고 뾰족한 진폭을 형성하며, 주파수 영역에서는 평탄한 그래프를 그립니다.'
+            },
+            pink: { 
+                title: 'Pink Noise',
+                badge: '1/f¹ 감쇠 패턴',
+                desc: '자연의 빗소리나 파도 소리와 유사한 음향 특성을 지닙니다. 백색소음보다 부드럽게 들리며 심리적 안정과 작업 기억 회복 보조 조건으로 활용됩니다.',
+                physics: '주파수에 반비례하여 에너지가 감소하는 패턴을 보입니다. 고주파 에너지가 상대적으로 줄어 백색 소음보다 부드럽고 덜 날카로운 파형을 나타냅니다.'
+            },
+            brown: { 
+                title: 'Brown Noise',
+                badge: '1/f² 저주파 집중',
+                desc: '복도 발소리, 문 닫는 진동음, 상층부 보행음처럼 수면을 방해하는 저주파 충격음을 마스킹하는 데 가장 적합한 조건으로 설정했습니다.',
+                physics: '주파수의 제곱에 반비례하여 에너지가 급격히 감소합니다. 에너지가 묵직한 저주파 대역에 밀집되어 파동의 굴곡이 크고 완만하게 나타납니다.'
+            },
+            green: { 
+                title: 'Green Noise',
+                badge: '중간 주파수 안정화',
+                desc: '자연환경에서 들리는 바람, 숲, 물소리와 유사한 중간 주파수 대역이 강조된 노이즈입니다. 백색소음보다 부드럽고 안정적으로 들리는 특징이 있습니다.',
+                physics: '저주파와 고주파가 과도하게 치우치지 않고 중간 대역이 완만하게 강조되는 형태입니다. 실제 청감상으로는 날카롭지 않고 자연음에 가까운 균일한 파형을 보입니다.'
+            }
+        };
+
+        const colorMap = {
+            white: '#b0bec5',
+            pink: '#f06292',
+            brown: '#8d6e63',
+            green: '#81c784',
+            default: '#90a4ae'
+        };
+
+        const subjectiveQuestions = [
+            '잠드는 데 큰 어려움이 없었다.',
+            '밤중에 자주 깨지 않았다.',
+            '소음 때문에 잠이 방해되지 않았다.',
+            '기상 후 몸이 개운했다.',
+            '아침 졸림이 적었다.',
+            '잠의 깊이가 충분하다고 느꼈다.',
+            '중간에 깼더라도 다시 잠드는 데 어려움이 없었다.',
+            '취침 전 긴장감이 낮았다.',
+            '노이즈가 주변 소음을 덜 의식하게 했다.',
+            '기상 직후 집중이 잘 되었다.',
+            '밤새 수면이 안정적으로 유지되었다.',
+            '불쾌한 소리 변화가 적었다.',
+            '기상 후 피로감이 낮았다.',
+            '수면 환경이 편안했다.',
+            '다음 날 학습할 준비가 되었다.'
+        ];
+
+        let currentView = 'analysis';
+        let currentNoise = 'white';
+        let isPlaying = false;
+        let visualMode = 'wave';
+        let calculatedRatios = { white: 0, pink: 0, brown: 0, green: 0 };
+        let selectedOptimizeNoise = null;
+        let activeTestStep = 'react';
+
+        function makeEmptyRecord() {
+            return {
+                reactionTimes: [],
+                reactScore: null,
+                reactAvg: null,
+                memoryCorrect: 0,
+                memoryTotal: 3,
+                memoryTrial: 0,
+                memScore: null,
+                calcCorrect: 0,
+                calcTotal: 3,
+                calcTrial: 0,
+                calcScore: null,
+                subjectiveAnswers: Array(15).fill(null),
+                subjectTotal: null,
+                sqs: null,
+                combinedScore: null
+            };
+        }
+
+        const testRecords = {
+            white: makeEmptyRecord(),
+            pink: makeEmptyRecord(),
+            brown: makeEmptyRecord(),
+            green: makeEmptyRecord()
+        };
+
+        const noiseScores = {
+            white: { sqs: null, sub: null },
+            pink: { sqs: null, sub: null },
+            brown: { sqs: null, sub: null },
+            green: { sqs: null, sub: null }
+        };
+
+        let reactionTimer = null;
+        let reactionStartTime = 0;
+        let reactionWaiting = false;
+        let reactionRunning = false;
+
+        let memoryCurrentAnswer = '';
+        let memoryRunning = false;
+
+        let calcCurrentAnswer = null;
+        let calcRunning = false;
+        let calcTimer = null;
+        let calcTimeLeft = 11;
+
+        function switchView(view) {
+            currentView = view;
+            
+            ['research', 'analysis', 'optimize', 'mixer'].forEach(v => {
+                document.getElementById(`tab-${v}`).classList.toggle('active', view === v);
+                document.getElementById(`view-${v}`).classList.toggle('active', view === v);
+            });
+
+            if (view === 'optimize') {
+                closeNoiseInput(false);
+            }
+
+            if (audioCtx) {
+                if (view === 'mixer') {
+                    isPlaying = false;
+                    document.getElementById('play-toggle').innerText = '현재 주파수 출력';
+                    updateMix();
+                } else if (view === 'analysis') {
+                    Object.keys(gains).forEach(k => gains[k].gain.value = 0);
+                    selectNoise(currentNoise);
+                } else {
+                    Object.keys(gains).forEach(k => gains[k].gain.value = 0);
+                    isPlaying = false;
+                    document.getElementById('play-toggle').innerText = '현재 주파수 출력';
+                }
+            }
+
+            refreshMixLabels();
+        }
+
+        function selectNoise(type) {
+            currentNoise = type;
+
+            document.querySelectorAll('.noise-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-${type}`).classList.add('active');
+            
+            document.getElementById('info-title').innerText = dictionary[type].title;
+            document.getElementById('info-badge').innerText = dictionary[type].badge;
+            document.getElementById('info-desc').innerText = dictionary[type].desc;
+            document.getElementById('info-physics').innerText = dictionary[type].physics;
+
+            if (isPlaying && currentView === 'analysis' && audioCtx) {
+                Object.keys(gains).forEach(k => {
+                    gains[k].gain.setTargetAtTime(k === type ? 0.5 : 0, audioCtx.currentTime, 0.1);
+                });
+            }
+        }
+
+        function togglePlay() {
+            if (!audioCtx) {
+                alert('상단의 [오디오 듣기]를 먼저 눌러 주세요.');
+                return;
+            }
+            
+            isPlaying = !isPlaying;
+            const btn = document.getElementById('play-toggle');
+            
+            if (isPlaying) {
+                btn.innerText = '출력 중지';
+                Object.keys(gains).forEach(k => {
+                    gains[k].gain.setTargetAtTime(k === currentNoise ? 0.5 : 0, audioCtx.currentTime, 0.1);
+                });
+            } else {
+                btn.innerText = '현재 주파수 출력';
+                Object.keys(gains).forEach(k => {
+                    gains[k].gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+                });
+            }
+        }
+
+        function openNoiseInput(type) {
+            selectedOptimizeNoise = type;
+            clearActiveTimers();
+
+            document.getElementById('opt-overview').style.display = 'none';
+            document.getElementById('opt-detail').style.display = 'block';
+
+            document.getElementById('detail-title').innerText = dictionary[type].title;
+            document.getElementById('detail-desc').innerText = `${dictionary[type].title} 조건에서 기상 직후 반응 속도, 기억 정답률, 연산 정답률, 주관적 수면 점수를 측정합니다.`;
+
+            switchTestStep('react');
+            refreshTestUI();
+        }
+
+        function closeNoiseInput() {
+            selectedOptimizeNoise = null;
+            clearActiveTimers();
+
+            document.getElementById('opt-overview').style.display = 'block';
+            document.getElementById('opt-detail').style.display = 'none';
+        }
+
+        function switchTestStep(step) {
+            activeTestStep = step;
+
+            ['react', 'memory', 'calc', 'subjective', 'final'].forEach(v => {
+                document.getElementById(`test-tab-${v}`).classList.toggle('active', step === v);
+                document.getElementById(`test-${v}`).classList.toggle('active', step === v);
+            });
+
+            if (step === 'subjective') {
+                renderSubjectiveQuestions();
+            }
+
+            if (step === 'final') {
+                refreshFinalSummary();
+            }
+        }
+
+        function clearActiveTimers() {
+            if (reactionTimer) clearTimeout(reactionTimer);
+            if (calcTimer) clearInterval(calcTimer);
+
+            reactionTimer = null;
+            calcTimer = null;
+            reactionWaiting = false;
+            reactionRunning = false;
+            memoryRunning = false;
+            calcRunning = false;
+        }
+
+        function getRecord() {
+            if (!selectedOptimizeNoise) return null;
+            return testRecords[selectedOptimizeNoise];
+        }
+
+        function clamp(value, min, max) {
+            return Math.max(min, Math.min(max, value));
+        }
+
+        function startReactionTest() {
+            const record = getRecord();
+            if (!record) return;
+
+            clearActiveTimers();
+            record.reactionTimes = [];
+            record.reactScore = null;
+            record.reactAvg = null;
+
+            reactionRunning = true;
+            document.getElementById('reaction-status').innerText = '곧 시작합니다. 화면이 진하게 바뀌면 즉시 클릭하세요.';
+            runNextReactionTrial();
+            refreshReactionUI();
+        }
+
+        function runNextReactionTrial() {
+            const record = getRecord();
+            if (!record) return;
+
+            const box = document.getElementById('reaction-box');
+
+            if (record.reactionTimes.length >= 5) {
+                finishReactionTest();
+                return;
+            }
+
+            reactionWaiting = false;
+            box.classList.remove('ready');
+            box.classList.add('waiting');
+            box.innerText = `대기 중... (${record.reactionTimes.length + 1}/5)`;
+
+            const delay = 1200 + Math.random() * 2200;
+
+            reactionTimer = setTimeout(() => {
+                reactionStartTime = performance.now();
+                reactionWaiting = true;
+                box.classList.remove('waiting');
+                box.classList.add('ready');
+                box.innerText = '지금 클릭!';
+            }, delay);
+        }
+
+        function handleReactionClick() {
+            const record = getRecord();
+            if (!record || !reactionRunning) return;
+
+            if (!reactionWaiting) {
+                document.getElementById('reaction-status').innerText = '너무 빨리 클릭했습니다. 해당 회차를 다시 진행합니다.';
+                if (reactionTimer) clearTimeout(reactionTimer);
+                setTimeout(runNextReactionTrial, 700);
+                return;
+            }
+
+            const reactionTime = (performance.now() - reactionStartTime) / 1000;
+            record.reactionTimes.push(reactionTime);
+
+            reactionWaiting = false;
+            document.getElementById('reaction-status').innerText = `${reactionTime.toFixed(3)}초 기록`;
+            refreshReactionUI();
+
+            setTimeout(runNextReactionTrial, 650);
+        }
+
+        function finishReactionTest() {
+            const record = getRecord();
+            if (!record) return;
+
+            reactionRunning = false;
+            reactionWaiting = false;
+
+            const avg = record.reactionTimes.reduce((a, b) => a + b, 0) / record.reactionTimes.length;
+            const score = clamp(100 - ((avg - 0.22) * 350), 0, 100);
+
+            record.reactAvg = avg;
+            record.reactScore = score;
+
+            const box = document.getElementById('reaction-box');
+            box.classList.remove('ready', 'waiting');
+            box.innerText = '반응 속도 테스트 완료';
+
+            document.getElementById('reaction-status').innerText = `평균 ${avg.toFixed(3)}초, 반응 점수 ${score.toFixed(2)}점`;
+            refreshReactionUI();
+            refreshFinalSummary();
+        }
+
+        function refreshReactionUI() {
+            const record = getRecord();
+            if (!record) return;
+
+            document.getElementById('react-count').innerText = `${record.reactionTimes.length}/5`;
+            document.getElementById('react-avg').innerText = record.reactAvg === null ? '-' : `${record.reactAvg.toFixed(3)}s`;
+            document.getElementById('react-score').innerText = record.reactScore === null ? '-' : record.reactScore.toFixed(2);
+        }
+
+        function startMemoryTest() {
+            const record = getRecord();
+            if (!record) return;
+
+            record.memoryCorrect = 0;
+            record.memoryTrial = 0;
+            record.memScore = null;
+            memoryRunning = true;
+
+            runNextMemoryTrial();
+            refreshMemoryUI();
+        }
+
+        function runNextMemoryTrial() {
+            const record = getRecord();
+            if (!record) return;
+
+            if (record.memoryTrial >= record.memoryTotal) {
+                finishMemoryTest();
+                return;
+            }
+
+            const display = document.getElementById('memory-display');
+            const input = document.getElementById('memory-input');
+            const status = document.getElementById('memory-status');
+
+            memoryCurrentAnswer = String(Math.floor(1000000 + Math.random() * 9000000));
+
+            display.innerText = memoryCurrentAnswer;
+            input.value = '';
+            input.disabled = true;
+            status.innerText = `숫자를 기억하세요. (${record.memoryTrial + 1}/3)`;
+
+            setTimeout(() => {
+                display.innerText = '*******';
+                input.disabled = false;
+                input.focus();
+                status.innerText = '방금 본 7자리 숫자를 입력하세요.';
+            }, 2000);
+        }
+
+        function submitMemoryAnswer() {
+            const record = getRecord();
+            if (!record || !memoryRunning) return;
+
+            const input = document.getElementById('memory-input');
+            if (input.disabled) return;
+
+            const answer = input.value.trim();
+
+            if (answer === memoryCurrentAnswer) {
+                record.memoryCorrect += 1;
+            }
+
+            record.memoryTrial += 1;
+
+            input.value = '';
+            input.disabled = true;
+
+            if (record.memoryTrial >= record.memoryTotal) {
+                finishMemoryTest();
+            } else {
+                document.getElementById('memory-status').innerText = answer === memoryCurrentAnswer
+                    ? '정답입니다. 다음 문항으로 넘어갑니다.'
+                    : `오답입니다. 정답은 ${memoryCurrentAnswer}였습니다.`;
+
+                setTimeout(runNextMemoryTrial, 900);
+            }
+
+            refreshMemoryUI();
+        }
+
+        function finishMemoryTest() {
+            const record = getRecord();
+            if (!record) return;
+
+            memoryRunning = false;
+            record.memScore = (record.memoryCorrect / record.memoryTotal) * 100;
+
+            document.getElementById('memory-display').innerText = '완료';
+            document.getElementById('memory-status').innerText = `기억 정답률 ${record.memScore.toFixed(2)}%`;
+
+            refreshMemoryUI();
+            refreshFinalSummary();
+        }
+
+        function refreshMemoryUI() {
+            const record = getRecord();
+            if (!record) return;
+
+            document.getElementById('memory-correct').innerText = `${record.memoryCorrect}/${record.memoryTotal}`;
+            document.getElementById('memory-rate').innerText = record.memScore === null ? '-' : `${record.memScore.toFixed(2)}%`;
+            document.getElementById('memory-score').innerText = record.memScore === null ? '-' : record.memScore.toFixed(2);
+        }
+
+        function generateCalcProblem() {
+            const a = Math.floor(10 + Math.random() * 90);
+            const b = Math.floor(2 + Math.random() * 8);
+            const c = Math.floor(10 + Math.random() * 90);
+            const op = Math.random() > 0.5 ? '+' : '-';
+            const answer = op === '+' ? (a * b) + c : (a * b) - c;
+
+            return {
+                question: `(${a} × ${b}) ${op} ${c}`,
+                answer
+            };
+        }
+
+        function startCalcTest() {
+            const record = getRecord();
+            if (!record) return;
+
+            if (calcTimer) clearInterval(calcTimer);
+
+            record.calcCorrect = 0;
+            record.calcTrial = 0;
+            record.calcScore = null;
+            calcRunning = true;
+
+            runNextCalcTrial();
+            refreshCalcUI();
+        }
+
+        function runNextCalcTrial() {
+            const record = getRecord();
+            if (!record) return;
+
+            if (record.calcTrial >= record.calcTotal) {
+                finishCalcTest();
+                return;
+            }
+
+            const problem = generateCalcProblem();
+            calcCurrentAnswer = problem.answer;
+            calcTimeLeft = 11;
+
+            document.getElementById('calc-display').innerText = problem.question;
+            document.getElementById('calc-input').value = '';
+            document.getElementById('calc-input').disabled = false;
+            document.getElementById('calc-input').focus();
+            document.getElementById('calc-status').innerText = `남은 시간 ${calcTimeLeft}초 (${record.calcTrial + 1}/3)`;
+
+            if (calcTimer) clearInterval(calcTimer);
+
+            calcTimer = setInterval(() => {
+                calcTimeLeft -= 1;
+                document.getElementById('calc-status').innerText = `남은 시간 ${calcTimeLeft}초 (${record.calcTrial + 1}/3)`;
+
+                if (calcTimeLeft <= 0) {
+                    submitCalcAnswer(true);
+                }
+            }, 1000);
+        }
+
+        function submitCalcAnswer(timeout = false) {
+            const record = getRecord();
+            if (!record || !calcRunning) return;
+
+            const input = document.getElementById('calc-input');
+            if (input.disabled && !timeout) return;
+
+            if (calcTimer) clearInterval(calcTimer);
+            calcTimer = null;
+
+            const userAnswer = Number(input.value);
+
+            if (!timeout && userAnswer === calcCurrentAnswer) {
+                record.calcCorrect += 1;
+            }
+
+            record.calcTrial += 1;
+            input.disabled = true;
+
+            if (record.calcTrial >= record.calcTotal) {
+                finishCalcTest();
+            } else {
+                document.getElementById('calc-status').innerText = timeout
+                    ? `시간 초과. 정답은 ${calcCurrentAnswer}였습니다.`
+                    : `정답은 ${calcCurrentAnswer}입니다. 다음 문항으로 넘어갑니다.`;
+
+                setTimeout(runNextCalcTrial, 900);
+            }
+
+            refreshCalcUI();
+        }
+
+        function finishCalcTest() {
+            const record = getRecord();
+            if (!record) return;
+
+            calcRunning = false;
+            record.calcScore = (record.calcCorrect / record.calcTotal) * 100;
+
+            document.getElementById('calc-display').innerText = '완료';
+            document.getElementById('calc-status').innerText = `연산 정답률 ${record.calcScore.toFixed(2)}%`;
+
+            refreshCalcUI();
+            refreshFinalSummary();
+        }
+
+        function refreshCalcUI() {
+            const record = getRecord();
+            if (!record) return;
+
+            document.getElementById('calc-correct').innerText = `${record.calcCorrect}/${record.calcTotal}`;
+            document.getElementById('calc-rate').innerText = record.calcScore === null ? '-' : `${record.calcScore.toFixed(2)}%`;
+            document.getElementById('calc-score').innerText = record.calcScore === null ? '-' : record.calcScore.toFixed(2);
+        }
+
+        function renderSubjectiveQuestions() {
+            const record = getRecord();
+            if (!record) return;
+
+            const wrapper = document.getElementById('subjective-questions');
+
+            wrapper.innerHTML = subjectiveQuestions.map((q, idx) => {
+                const saved = record.subjectiveAnswers[idx];
+
+                return `
+                    <div class="question-item">
+                        <label>${idx + 1}. ${q}</label>
+                        <select onchange="setSubjectiveAnswer(${idx}, this.value)">
+                            <option value="">선택</option>
+                            <option value="1" ${saved === 1 ? 'selected' : ''}>1점: 전혀 아님</option>
+                            <option value="2" ${saved === 2 ? 'selected' : ''}>2점: 약간 아님</option>
+                            <option value="3" ${saved === 3 ? 'selected' : ''}>3점: 그런 편</option>
+                            <option value="4" ${saved === 4 ? 'selected' : ''}>4점: 매우 그럼</option>
+                        </select>
+                    </div>
+                `;
+            }).join('');
+
+            refreshSubjectiveStatus();
+        }
+
+        function setSubjectiveAnswer(index, value) {
+            const record = getRecord();
+            if (!record) return;
+
+            record.subjectiveAnswers[index] = value === '' ? null : Number(value);
+            refreshSubjectiveStatus();
+            refreshFinalSummary();
+        }
+
+        function getSubjectiveTotal(record) {
+            if (record.subjectiveAnswers.some(v => v === null)) return null;
+            return record.subjectiveAnswers.reduce((a, b) => a + b, 0);
+        }
+
+        function refreshSubjectiveStatus() {
+            const record = getRecord();
+            if (!record) return;
+
+            const answered = record.subjectiveAnswers.filter(v => v !== null).length;
+            const total = getSubjectiveTotal(record);
+
+            record.subjectTotal = total;
+
+            document.getElementById('subjective-status').innerText = total === null
+                ? `15문항 중 ${answered}문항 응답`
+                : `주관적 수면 점수 ${total}/60점`;
+        }
+
+        function calculateCurrentSQS(record) {
+            if (record.reactScore === null || record.memScore === null || record.calcScore === null) {
+                return null;
+            }
+
+            return (0.4 * record.reactScore) + (0.3 * record.memScore) + (0.3 * record.calcScore);
+        }
+
+        function refreshFinalSummary() {
+            const record = getRecord();
+            if (!record) return;
+
+            const subjectTotal = getSubjectiveTotal(record);
+            const sqs = calculateCurrentSQS(record);
+            const combined = sqs === null || subjectTotal === null ? null : sqs + (subjectTotal * (100 / 60));
+
+            document.getElementById('final-react').innerText = record.reactScore === null ? '-' : record.reactScore.toFixed(2);
+            document.getElementById('final-memory').innerText = record.memScore === null ? '-' : record.memScore.toFixed(2);
+            document.getElementById('final-calc').innerText = record.calcScore === null ? '-' : record.calcScore.toFixed(2);
+            document.getElementById('final-subjective').innerText = subjectTotal === null ? '-' : `${subjectTotal}/60`;
+            document.getElementById('final-sqs').innerText = sqs === null ? '-' : sqs.toFixed(2);
+            document.getElementById('final-combined').innerText = combined === null ? '-' : combined.toFixed(2);
+        }
+
+        function saveFullTestResult() {
+            const record = getRecord();
+            if (!record || !selectedOptimizeNoise) return;
+
+            const sqs = calculateCurrentSQS(record);
+            const subjectTotal = getSubjectiveTotal(record);
+
+            if (sqs === null) {
+                alert('반응 속도, 기억 정답률, 연산 정답률 테스트를 모두 완료해 주세요.');
+                return;
+            }
+
+            if (subjectTotal === null) {
+                alert('주관적 수면 설문 15문항을 모두 응답해 주세요.');
+                return;
+            }
+
+            record.sqs = sqs;
+            record.subjectTotal = subjectTotal;
+            record.combinedScore = sqs + (subjectTotal * (100 / 60));
+
+            noiseScores[selectedOptimizeNoise] = {
+                sqs: sqs,
+                sub: subjectTotal,
+                reactAvg: record.reactAvg,
+                reactScore: record.reactScore,
+                memScore: record.memScore,
+                calcScore: record.calcScore,
+                combined: record.combinedScore
+            };
+
+            updateScoreCard(selectedOptimizeNoise);
+            closeNoiseInput();
+        }
+
+        function updateScoreCard(type) {
+            const card = document.getElementById(`score-card-${type}`);
+            const score = noiseScores[type];
+
+            if (score.sqs === null || score.sub === null) {
+                card.innerHTML = `<div class="score-empty">측정 전</div>`;
+                return;
+            }
+
+            card.innerHTML = `
+                <div class="score-row"><span>최종 SQS</span><strong>${score.sqs.toFixed(2)}</strong></div>
+                <div class="score-row"><span>수면 점수</span><strong>${score.sub}/60</strong></div>
+                <div class="score-row"><span>반응 시간</span><strong>${score.reactAvg.toFixed(3)}s</strong></div>
+                <div class="score-row"><span>기억 점수</span><strong>${score.memScore.toFixed(2)}</strong></div>
+                <div class="score-row"><span>연산 점수</span><strong>${score.calcScore.toFixed(2)}</strong></div>
+            `;
+        }
+
+        function refreshTestUI() {
+            refreshReactionUI();
+            refreshMemoryUI();
+            refreshCalcUI();
+            renderSubjectiveQuestions();
+            refreshFinalSummary();
+
+            const record = getRecord();
+            if (!record) return;
+
+            if (record.reactScore !== null) {
+                document.getElementById('reaction-box').innerText = '반응 속도 테스트 완료';
+                document.getElementById('reaction-status').innerText = `평균 ${record.reactAvg.toFixed(3)}초, 반응 점수 ${record.reactScore.toFixed(2)}점`;
+            } else {
+                document.getElementById('reaction-box').innerText = '테스트 시작 버튼을 누르세요';
+                document.getElementById('reaction-status').innerText = '미측정';
+            }
+
+            if (record.memScore !== null) {
+                document.getElementById('memory-display').innerText = '완료';
+                document.getElementById('memory-status').innerText = `기억 정답률 ${record.memScore.toFixed(2)}%`;
+            } else {
+                document.getElementById('memory-display').innerText = '-------';
+                document.getElementById('memory-status').innerText = '미측정';
+            }
+
+            if (record.calcScore !== null) {
+                document.getElementById('calc-display').innerText = '완료';
+                document.getElementById('calc-status').innerText = `연산 정답률 ${record.calcScore.toFixed(2)}%`;
+            } else {
+                document.getElementById('calc-display').innerText = '문제 대기';
+                document.getElementById('calc-status').innerText = '미측정';
+            }
+        }
+
+        function calculateOptimization() {
+            const noises = ['white', 'pink', 'brown', 'green'];
+            let scores = {};
+            let totalWeightedScore = 0;
+
+            for (let type of noises) {
+                const sqs = noiseScores[type].sqs ?? 0;
+                const sub = noiseScores[type].sub ?? 0;
+
+                const combined = sqs + (sub * (100 / 60));
+                const weight = Math.pow(combined, 2);
+
+                scores[type] = weight;
+                totalWeightedScore += weight;
+            }
+
+            if (totalWeightedScore === 0) {
+                alert('노이즈 카드 중 최소 하나 이상을 클릭해 테스트와 설문을 완료해 주세요.');
+                return;
+            }
+
+            document.getElementById('optimization-result').style.display = 'block';
+
+            let roundedTotal = 0;
+            const ratios = {};
+
+            for (let type of noises) {
+                ratios[type] = Math.round((scores[type] / totalWeightedScore) * 100);
+                roundedTotal += ratios[type];
+            }
+
+            const adjustType = noises.reduce((best, type) => scores[type] > scores[best] ? type : best, 'white');
+            ratios[adjustType] += (100 - roundedTotal);
+
+            for (let type of noises) {
+                calculatedRatios[type] = ratios[type];
+                document.getElementById(`res-${type}`).innerText = `${ratios[type]}%`;
+            }
+        }
+
+        function applyToMixer() {
+            ['white', 'pink', 'brown', 'green'].forEach(type => {
+                document.getElementById(`mix-${type}`).value = calculatedRatios[type];
+            });
+
+            switchView('mixer');
+            updateMix();
+        }
+
+        function updateMix() {
+            refreshMixLabels();
+
+            if (!audioCtx || currentView !== 'mixer') return;
+
+            ['white', 'pink', 'brown', 'green'].forEach(type => {
+                const val = document.getElementById(`mix-${type}`).value;
+                gains[type].gain.setTargetAtTime((val / 100) * 0.5, audioCtx.currentTime, 0.1);
+            });
+        }
+
+        function refreshMixLabels() {
+            ['white', 'pink', 'brown', 'green'].forEach(type => {
+                const slider = document.getElementById(`mix-${type}`);
+                const label = document.getElementById(`val-${type}`);
+                if (slider && label) {
+                    label.innerText = `${slider.value}%`;
+                }
+            });
+        }
+
+        function getRatiosForDownload(mode) {
+            const mixerRatios = {
+                white: Number(document.getElementById('mix-white').value || 0),
+                pink: Number(document.getElementById('mix-pink').value || 0),
+                brown: Number(document.getElementById('mix-brown').value || 0),
+                green: Number(document.getElementById('mix-green').value || 0)
+            };
+
+            const mixerSum = Object.values(mixerRatios).reduce((a, b) => a + b, 0);
+            const optimizedSum = Object.values(calculatedRatios).reduce((a, b) => a + b, 0);
+
+            if (mode === 'mixer' && mixerSum > 0) return mixerRatios;
+            if (mode === 'optimized' && optimizedSum > 0) return { ...calculatedRatios };
+            if (optimizedSum > 0) return { ...calculatedRatios };
+            if (mixerSum > 0) return mixerRatios;
+
+            return null;
+        }
+
+        function getDownloadDuration(mode) {
+            const selectId = mode === 'mixer' ? 'download-duration-mixer' : 'download-duration-opt';
+            const select = document.getElementById(selectId);
+            if (!select) return 600;
+            return Number(select.value || 600);
+        }
+
+        function setDownloadStatus(mode, text) {
+            const statusId = mode === 'mixer' ? 'download-status-mixer' : 'download-status-opt';
+            const status = document.getElementById(statusId);
+            if (status) status.innerText = text;
+        }
+
+        function createBandpassState(sampleRate, frequency, q) {
+            const w0 = 2 * Math.PI * frequency / sampleRate;
+            const alpha = Math.sin(w0) / (2 * q);
+            const cosW0 = Math.cos(w0);
+
+            let b0 = alpha;
+            let b1 = 0;
+            let b2 = -alpha;
+            let a0 = 1 + alpha;
+            let a1 = -2 * cosW0;
+            let a2 = 1 - alpha;
+
+            b0 /= a0;
+            b1 /= a0;
+            b2 /= a0;
+            a1 /= a0;
+            a2 /= a0;
+
+            return { b0, b1, b2, a1, a2, x1: 0, x2: 0, y1: 0, y2: 0 };
+        }
+
+        function processBandpass(state, x) {
+            const y = state.b0 * x + state.b1 * state.x1 + state.b2 * state.x2 - state.a1 * state.y1 - state.a2 * state.y2;
+            state.x2 = state.x1;
+            state.x1 = x;
+            state.y2 = state.y1;
+            state.y1 = y;
+            return y;
+        }
+
+        function encodeAudioData(samples, sampleRate) {
+            const numChannels = 1;
+            const bytesPerSample = 2;
+            const blockAlign = numChannels * bytesPerSample;
+            const byteRate = sampleRate * blockAlign;
+            const dataSize = samples.length * bytesPerSample;
+
+            const buffer = new ArrayBuffer(44 + dataSize);
+            const view = new DataView(buffer);
+
+            function writeString(offset, string) {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            }
+
+            writeString(0, 'RIFF');
+            view.setUint32(4, 36 + dataSize, true);
+            writeString(8, ['W','A','V','E'].join(''));
+
+            writeString(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, byteRate, true);
+            view.setUint16(32, blockAlign, true);
+            view.setUint16(34, 16, true);
+
+            writeString(36, 'data');
+            view.setUint32(40, dataSize, true);
+
+            let offset = 44;
+
+            for (let i = 0; i < samples.length; i++) {
+                const s = Math.max(-1, Math.min(1, samples[i]));
+                view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+                offset += 2;
+            }
+
+            return buffer;
+        }
+
+        function generateCustomNoiseSamples(ratios, durationSeconds) {
+            const sampleRate = 22050;
+            const totalSamples = Math.floor(sampleRate * durationSeconds);
+            const samples = new Float32Array(totalSamples);
+
+            const totalRatio = Object.values(ratios).reduce((a, b) => a + b, 0);
+
+            const weights = {
+                white: (ratios.white || 0) / totalRatio,
+                pink: (ratios.pink || 0) / totalRatio,
+                brown: (ratios.brown || 0) / totalRatio,
+                green: (ratios.green || 0) / totalRatio
+            };
+
+            let p0 = 0, p1 = 0, p2 = 0, p3 = 0, p4 = 0, p5 = 0, p6 = 0;
+            let brownLast = 0;
+            const greenFilter = createBandpassState(sampleRate, 500, 1.2);
+            const fadeSamples = Math.min(sampleRate * 3, Math.floor(totalSamples / 8));
+
+            for (let i = 0; i < totalSamples; i++) {
+                const white = Math.random() * 2 - 1;
+
+                p0 = 0.99886 * p0 + white * 0.0555179;
+                p1 = 0.99332 * p1 + white * 0.0750759;
+                p2 = 0.96900 * p2 + white * 0.1538520;
+                p3 = 0.86650 * p3 + white * 0.3104856;
+                p4 = 0.55000 * p4 + white * 0.5329522;
+                p5 = -0.7616 * p5 - white * 0.0168980;
+
+                const pink = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + white * 0.5362) * 0.11;
+                p6 = white * 0.115926;
+
+                const brown = ((brownLast + 0.02 * white) / 1.02) * 3.5;
+                brownLast = brown / 3.5;
+
+                const green = processBandpass(greenFilter, white) * 2.0;
+
+                let mixed =
+                    weights.white * white +
+                    weights.pink * pink +
+                    weights.brown * brown +
+                    weights.green * green;
+
+                let envelope = 1;
+
+                if (i < fadeSamples) {
+                    envelope = i / fadeSamples;
+                } else if (i > totalSamples - fadeSamples) {
+                    envelope = (totalSamples - i) / fadeSamples;
+                }
+
+                mixed *= 0.32 * envelope;
+                samples[i] = Math.max(-1, Math.min(1, mixed));
+            }
+
+            return { samples, sampleRate };
+        }
+
+        function downloadCustomNoise(mode = 'optimized') {
+            const ratios = getRatiosForDownload(mode);
+
+            if (!ratios) {
+                alert('먼저 개인 최적화 비율을 계산하거나 주파수 믹서에서 비율을 설정해 주세요.');
+                return;
+            }
+
+            const durationSeconds = getDownloadDuration(mode);
+            const minutes = Math.round(durationSeconds / 60 * 10) / 10;
+
+            setDownloadStatus(mode, `${minutes}분짜리 Custom 노이즈를 생성 중입니다. 잠시 기다려 주세요.`);
+
+            setTimeout(() => {
+                const rendered = generateCustomNoiseSamples(ratios, durationSeconds);
+                const audioBuffer = encodeAudioData(rendered.samples, rendered.sampleRate);
+
+                const blob = new Blob([audioBuffer], { type: 'audio/' + 'wav' });
+                const url = URL.createObjectURL(blob);
+
+                const ratioText = `W${ratios.white || 0}_P${ratios.pink || 0}_B${ratios.brown || 0}_G${ratios.green || 0}`;
+                const filename = `custom_sleep_noise_${ratioText}_${durationSeconds}s.` + 'wav';
+
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                URL.revokeObjectURL(url);
+
+                setDownloadStatus(mode, '다운로드 완료. 자기 전에 반복 재생하면 됩니다.');
+            }, 80);
+        }
+
+        function setVisualizer(mode) {
+            visualMode = mode;
+            document.getElementById('vis-wave').classList.toggle('active', mode === 'wave');
+            document.getElementById('vis-spec').classList.toggle('active', mode === 'spec');
+        }
+
+        let audioCtx;
+        let analyser;
+        let dataArrayWave;
+        let dataArrayFreq;
+        const gains = {};
+
+        function initAudioEngine() {
+            document.getElementById('engine-overlay').style.display = 'none';
+
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 2048;
+            analyser.smoothingTimeConstant = 0.85;
+            analyser.connect(audioCtx.destination);
+            
+            const bufferSize = audioCtx.sampleRate * 2;
+            const buffers = {
+                white: audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate),
+                pink: audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate),
+                brown: audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate),
+                green: audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate)
+            };
+
+            const whiteOut = buffers.white.getChannelData(0);
+            const pinkOut = buffers.pink.getChannelData(0);
+            const brownOut = buffers.brown.getChannelData(0);
+
+            let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+            let lastOut = 0;
+
+            for (let i = 0; i < bufferSize; i++) {
+                const white = Math.random() * 2 - 1;
+                whiteOut[i] = white;
+                
+                b0 = 0.99886 * b0 + white * 0.0555179;
+                b1 = 0.99332 * b1 + white * 0.0750759;
+                b2 = 0.96900 * b2 + white * 0.1538520;
+                b3 = 0.86650 * b3 + white * 0.3104856;
+                b4 = 0.55000 * b4 + white * 0.5329522;
+                b5 = -0.7616 * b5 - white * 0.0168980;
+
+                pinkOut[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+                b6 = white * 0.115926;
+
+                const out = (lastOut + (0.02 * white)) / 1.02;
+                lastOut = out;
+                brownOut[i] = out * 3.5;
+            }
+
+            const greenFilter = audioCtx.createBiquadFilter();
+            greenFilter.type = 'bandpass';
+            greenFilter.frequency.value = 500;
+            greenFilter.Q.value = 1.2;
+
+            ['white', 'pink', 'brown', 'green'].forEach(type => {
+                const source = audioCtx.createBufferSource();
+                source.buffer = type === 'green' ? buffers.white : buffers[type];
+                source.loop = true;
+                
+                gains[type] = audioCtx.createGain();
+                gains[type].gain.value = 0;
+
+                if (type === 'green') {
+                    source.connect(greenFilter);
+                    greenFilter.connect(gains[type]);
+                } else {
+                    source.connect(gains[type]);
+                }
+
+                gains[type].connect(analyser);
+                source.start();
+            });
+
+            dataArrayWave = new Uint8Array(analyser.frequencyBinCount);
+            dataArrayFreq = new Uint8Array(analyser.frequencyBinCount);
+
+            drawVisualizer();
+
+            if (currentView === 'analysis') {
+                isPlaying = true;
+                document.getElementById('play-toggle').innerText = '출력 중지';
+                Object.keys(gains).forEach(k => {
+                    gains[k].gain.setTargetAtTime(k === currentNoise ? 0.5 : 0, audioCtx.currentTime, 0.1);
+                });
+            }
+        }
+
+        const canvas = document.getElementById('waveform-canvas');
+        const canvasCtx = canvas.getContext('2d');
+        
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function drawVisualizer() {
+            requestAnimationFrame(drawVisualizer);
+            if (!analyser) return;
+
+            canvasCtx.fillStyle = '#1e1e24';
+            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+            canvasCtx.lineWidth = 1;
+            canvasCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            canvasCtx.beginPath();
+
+            for (let i = 0; i < canvas.height; i += 40) {
+                canvasCtx.moveTo(0, i);
+                canvasCtx.lineTo(canvas.width, i);
+            }
+
+            for (let i = 0; i < canvas.width; i += 40) {
+                canvasCtx.moveTo(i, 0);
+                canvasCtx.lineTo(i, canvas.height);
+            }
+
+            canvasCtx.stroke();
+
+            const renderColor = currentView === 'analysis' ? colorMap[currentNoise] : colorMap.default;
+
+            if (visualMode === 'wave') {
+                analyser.getByteTimeDomainData(dataArrayWave);
+                canvasCtx.lineWidth = 2.5;
+                canvasCtx.strokeStyle = renderColor;
+                canvasCtx.beginPath();
+
+                const sliceWidth = canvas.width / analyser.frequencyBinCount;
+                let x = 0;
+
+                for (let i = 0; i < analyser.frequencyBinCount; i++) {
+                    const v = dataArrayWave[i] / 128.0;
+                    const y = v * canvas.height / 2;
+
+                    if (i === 0) {
+                        canvasCtx.moveTo(x, y);
+                    } else {
+                        canvasCtx.lineTo(x, y);
+                    }
+
+                    x += sliceWidth;
+                }
+
+                canvasCtx.lineTo(canvas.width, canvas.height / 2);
+                canvasCtx.stroke();
+            }
+
+            if (visualMode === 'spec') {
+                analyser.getByteFrequencyData(dataArrayFreq);
+                
+                const renderLength = Math.floor(analyser.frequencyBinCount / 4);
+                const barWidth = (canvas.width / renderLength) * 2.5;
+                let x = 0;
+
+                for (let i = 0; i < renderLength; i++) {
+                    const barHeight = dataArrayFreq[i];
+                    canvasCtx.fillStyle = renderColor;
+                    canvasCtx.fillRect(
+                        x,
+                        canvas.height - (barHeight / 255 * canvas.height),
+                        barWidth,
+                        barHeight / 255 * canvas.height
+                    );
+                    x += barWidth + 1;
+                }
+            }
+        }
+
+        document.getElementById('memory-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') submitMemoryAnswer();
+        });
+
+        document.getElementById('calc-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') submitCalcAnswer();
+        });
+
+        refreshMixLabels();
+    </script>
+</body>
+</html>
